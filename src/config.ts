@@ -94,7 +94,7 @@ export const profileConfig: ProfileConfig = {
 			icon: "fa6-brands:linkedin-in", // Visit https://icones.js.org/ for icon codes
 			// You will need to install the corresponding icon set if it's not already included
 			// `pnpm add @iconify-json/<icon-set-name>`
-			url: "https://linkedin.com/in/sam-ferg-cyber",
+			url: "https://linkedin.com/in/labmansec",
 		},
 		{
 			name: "GitHub",

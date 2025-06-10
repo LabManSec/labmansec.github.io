@@ -22,6 +22,8 @@ import { remarkReadingTime } from "./src/plugins/remark-reading-time.mjs";
 export default defineConfig({
 	site: "https://labmansec.github.io/",
 	base: "/",
+	output: "static",
+	outDir: "./docs",
 	trailingSlash: "always",
 	integrations: [
 		tailwind({

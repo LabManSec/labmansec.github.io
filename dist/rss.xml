@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?><rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>LabManSec</title><description>Welcome to the lab...</description><link>https://labmansec.github.io/</link><language>en</language><item><title>The Thing About SIDs (and RIDs)</title><link>https://labmansec.github.io/posts/education/sids/</link><guid isPermaLink="true">https://labmansec.github.io/posts/education/sids/</guid><description>Who knew a ground sloth could be so troublesome?</description><pubDate>Sun, 08 Jun 2025 00:00:00 GMT</pubDate><content:encoded>&lt;h1&gt;A Hash Never Lies...right?&lt;/h1&gt;
+&lt;p&gt;As part of my CRTP studies, I&apos;ve been trying to get more involved in the Altered Security discord server and help answer other students&apos; questions. I&apos;ve found this has been a great way for me to test my own understanding of the material while giving back to the community. One night, another user was having issues with a silver ticket attack. They had pulled the machine account hash, done all the commands properly, and still were unable to access the resources they should have had access to. How could this be?&lt;/p&gt;
+&lt;p&gt;We&apos;ll answer that question in a bit, but first let&apos;s make sure we&apos;re all on the same page.&lt;/p&gt;
+&lt;h1&gt;An Intro to SIDs and RIDs&lt;/h1&gt;
+&lt;p&gt;To understand SIDs and RIDs, we must first start by understanding Security Principals. Noted by Microsoft as being the foundation to access control in Windows, Security Principals are &quot;any entity that can be authenticated by the operating system, such as a user account, a computer account, or the security groups for these accounts&quot;. These entities are each represented by a unique Security Identifier, which is stored in the Security Accounts Manager (SAM, for local accounts) or the Global Catalog (GC, for Active Directory) for the duration of their lifetime. These SIDs are passed during the authentication process through access tokens, which contains the SID of a user and of all group memberships for the user. These can be referenced against individual Access Control Entities (ACEs) that make up an Access Control List (ACL).&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;sid/secprincipal.png&quot; alt=&quot;&quot; /&gt;&lt;em&gt;A diagram of the Windows access control methodology, courtesy of Microsoft&lt;/em&gt;&lt;/p&gt;
+&lt;h2&gt;SID and RID Structure and Common Identifiers&lt;/h2&gt;
+&lt;p&gt;Let&apos;s use the following SIDs as examples: &lt;code&gt;S-1-5-21-1004336348-1177238915-682003330-512&lt;/code&gt; and &lt;code&gt;S-1-5-14&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;SIDS are follow the format &lt;code&gt;S-R-X-Y1-Y2-...Yn&lt;/code&gt;, with each value representing the following:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;S&lt;/code&gt; - Signifies that string is a SID&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;R&lt;/code&gt; - The revision level (virtually always 1)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;X&lt;/code&gt; - The identifier authority value (Most commonly 5, or &lt;code&gt;SECURITY_NT_AUTHORITY&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;Y&lt;/code&gt; - A series of subauthorities, which can be a single or multiple values&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;AS we can see, the first few parts of our example SID line up quite well with the formula we&apos;ve outlined. But how about everything after &lt;code&gt;S-1-5&lt;/code&gt;? Well, our next useful value is &lt;code&gt;21-1004336348-1177238915-682003330&lt;/code&gt;. This value represents the unique identifier for our domain (in this case, the classic &lt;code&gt;contoso.com&lt;/code&gt;). The final trailing &lt;code&gt;Y&lt;/code&gt; value, in this case &lt;code&gt;512 &lt;/code&gt; is what is known a Relative Identifier (RID). RIDs help identify one account from another on a local computer or domain. These RIDs are unique to each host and domain, and no single RID can be reused, even after a user is deleted.&lt;/p&gt;
+&lt;p&gt;You may notice that our second SID&apos;s RID comes directly after it&apos;s authority value and lacks a domain value. These SIDs are part of the Special Identities Group, which you can read more about &lt;a href=&quot;https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-special-identities-groups&quot;&gt;here&lt;/a&gt;. These groups can be assigned rights and permissions to resources, but, unlike other domain and local groups, cannot have their membership modified. Their membership is based on specific circumstances and state conditions within a local system or domain, so users and computers are automatically assigned to these groups as those conditions are met.&lt;/p&gt;
+&lt;p&gt;As red teamers, there are a number of accounts that we should be familiar with. Thankfully, Microsoft has a pretty good reference available &lt;a href=&quot;https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers&quot;&gt;here&lt;/a&gt; (along with plenty of reference material for SIDs in general). Some common ones that you may want to take note of are the following:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-9&lt;/code&gt; - Enterprise Domain Controllers&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-18&lt;/code&gt; - &lt;code&gt;NT AUTHORITY\SYSTEM&lt;/code&gt; user (or &lt;code&gt;LocalSystem&lt;/code&gt;)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-domain-500&lt;/code&gt; - Administrator user (for Domain and Local level)&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-domain-502&lt;/code&gt; - KRBTGT user&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-domain-512&lt;/code&gt; - Domain Administrators group&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-domain-516&lt;/code&gt; - Domain Controllers group&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-root domain-519&lt;/code&gt; - Enterprise Administrators group
+:::note
+This is a very surface-level list - there are plenty more interesting SIDs!
+:::&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h1&gt;Red Team Use Cases&lt;/h1&gt;
+&lt;p&gt;Now that we&apos;ve done a brief over of what SIDs and RIDs are and how they work, let&apos;s take a look at a few use cases where red teamers may leverage or exploit these values for their own gain.&lt;/p&gt;
+&lt;h2&gt;SID History and SID filtering&lt;/h2&gt;
+&lt;p&gt;&lt;code&gt;SIDHistory&lt;/code&gt;is an Active Directory account attribute that supports migrations within an Active Directory environment. This is useful when migrating users form one domain to another, as it will ensure that the access they had to previous resources will not be removed by notating their previous domain&apos;s SID in the &lt;code&gt;SIDHistory&lt;/code&gt; property. While this is a useful feature for such scenarios, it can also be leveraged for malicious reasons. Since Kerberos validation is typically limited to &quot;can the KDC decrypt the TGT&quot;, threat actors are able to pass SIDs as part of the &lt;code&gt;SIDHistory&lt;/code&gt; within the PAC of the TGT, we can escalate from a Domain Administrator to an Enterprise Administrator. An example &lt;code&gt;Rubeus&lt;/code&gt; command would be as follows:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Rubeus.exe evasive-golden /user:Administrator /id:500 /domain:dollarcorp.moneycorp.local /sid:S-1-5-&amp;lt;DOMAIN&amp;gt; /sids:S-1-5-&amp;lt;ROOT_DOMAIN&amp;gt;-519 /aes256:&amp;lt;KRBTGT_AES&amp;gt; /netbios:dcorp /ptt
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Then with this ticket, we can access an enterprise domain controller (in this case, &lt;code&gt;mcorp-dc.moneycorp.local&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;sid/EA.png&quot; alt=&quot;EZ Clap&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;For more on this, please check out Sean Metcalf&apos;s blog post &lt;a href=&quot;https://adsecurity.org/?p=1640&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;h2&gt;RID Bruteforcing/Cycling&lt;/h2&gt;
+&lt;p&gt;With domain-specific RIDs starting at the number 500 (and only increasing), they can be bruteforced to provide threat actors with a list of SIDs and account names for each. Most tooling built to conduct RID bruteforcing leverage RPC over SMB and null sessions. As Dave Kennedy from TrustedSec discusses &lt;a href=&quot;https://www.trustedsec.com/blog/new-tool-release-rpc_enum-rid-cycling-attack&quot;&gt;here&lt;/a&gt;, a null session is simply an SMB session with no username or password provided. By scripting out the usage of an RPC client, like the aptly named &lt;code&gt;rpcclient&lt;/code&gt;, a tool can connect to a share that accepts null sessions and execute commands such as &lt;code&gt;lookupsids S-1-2-&amp;lt;DOMAIN&amp;gt;-&amp;lt;RID&amp;gt;&lt;/code&gt; for hundreds to tens of thousands of RID values and acquire their corresponding accounts.&lt;/p&gt;
+&lt;p&gt;Historically, pentesters and red teamers have flocked to the &lt;code&gt;IPC$&lt;/code&gt; share as an &quot;in&quot; to null session enumeration. This is something that Microsoft is &lt;a href=&quot;https://techcommunity.microsoft.com/blog/filecab/smb-and-null-sessions-why-your-pen-test-is-probably-wrong/1185365&quot;&gt;well aware of&lt;/a&gt;, so don&apos;t be surprised if you aren&apos;t able to pull this off in your own tests.&lt;/p&gt;
+&lt;h2&gt;RID Hijacking&lt;/h2&gt;
+&lt;p&gt;For a more recent example of RID exploitation, we can look at attacks earlier this year by Andariel, a subset of the Lazarus Group APT. In their attacks, Andariel utilizes a method known as RID hijacking in order to achieve persistent high privileges through hidden accounts. As detailed in &lt;a href=&quot;https://asec.ahnlab.com/en/85942/&quot;&gt;this blog post&lt;/a&gt; by AhnLab&apos;s ASEC, Andariel utilized custom malware and open source tooling to achieve &lt;code&gt;SYSTEM&lt;/code&gt; privileges, create &quot;hidden accounts&quot; (effectively machine accounts), and modify the registry value under path &lt;code&gt;HKEY_LOCAL_MACHINE\SAM\SAM\Domains\Account\Users\&amp;lt;AccountName&amp;gt;&lt;/code&gt;. This registry change causes the RID for that account to be the same as a high-privileged user (ie: &lt;code&gt;Administrator&lt;/code&gt;), thus providing that account persistent high permissions.&lt;/p&gt;
+&lt;h1&gt;Attack of the Clones&lt;/h1&gt;
+&lt;p&gt;Let&apos;s get back to how this all started - a failed silver ticket attack. In this scenario, the goal was to remote into a server using &lt;code&gt;winrs&lt;/code&gt; by getting a silver ticket for that host&apos;s &lt;code&gt;http&lt;/code&gt; service. So to catch up with him, I went and did a quick DCSync attack to compare his machine account&apos;s AES hash with my own. Surprisingly, the two hashes were different.&lt;/p&gt;
+&lt;p&gt;I double-checked with the student and they assured me they had the hash for the correct machine. Suddenly, my spidey-sense started tingling. I remembered something Nikhil (owner of Altered Security and CRTP instructor) had mentioned regarding machine accounts.&lt;/p&gt;
+&lt;h2&gt;Virtual Accounts&lt;/h2&gt;
+&lt;p&gt;Microsoft introduced the concept of &quot;virtual accounts&quot; back during the Windows 7 era (if Wikipedia is to be believed). These virtual accounts are the local cousin of your typical domain-bound managed service accounts (such as sMSAs, gMSAs, and the new dMSAs) - they are automatically managed by the operating system to simplify service deployment and management. Virtual accounts can be identified through their naming scheme of &lt;code&gt;NT SERVICE\&amp;lt;ServiceName&amp;gt;&lt;/code&gt;. As Andrew Mayo points out in his blog post &lt;a href=&quot;https://www.1e.com/blogs/accounts-everywhere-part-1/&quot;&gt;here&lt;/a&gt;, you can also identify virtual accounts by a variety of SIDs, such as:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-82&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-90-0&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-90-1&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-90-2&lt;/code&gt;&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;S-1-5-96-0-n&lt;/code&gt; (where &lt;code&gt;n&lt;/code&gt; is a number, potentially 2)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;h2&gt;Finding &quot;True&quot; Machine Accounts&lt;/h2&gt;
+&lt;p&gt;In order to find the &quot;true&quot; machine account (one that isn&apos;t a virtual account), we simply need to find an SID for a security principal that uses the machine account&apos;s credentials. According to Microsoft&apos;s SID documentation I referenced earlier (and more clearly by this StackOverflow answer &lt;a href=&quot;https://stackoverflow.com/questions/510170/the-difference-between-the-local-system-account-and-the-network-service-acco&quot;&gt;here&lt;/a&gt;), SIDs &lt;code&gt;S-1-5-18&lt;/code&gt; (aka &lt;code&gt;LocalSystem&lt;/code&gt;) and &lt;code&gt;S-1-5-20&lt;/code&gt; (aka &lt;code&gt;NetworkService&lt;/code&gt;) both utilize the local machine account&apos;s credentials when they are required to authenticate. When looking at the output of my LSASS dump from SafetyKatz, I was able to confirm that both AES256 hashes matched and were different from all other virtual machine accounts in the output.&lt;/p&gt;
+&lt;p&gt;One thing to note is that there is another SID smack dab in the middle of the two we mentioned above - &lt;code&gt;S-1-5-19&lt;/code&gt;. As the StackOverflow answer notes, this account is for the &lt;code&gt;LocalService&lt;/code&gt; account. This account is an intentionally low-privileged account that has minimal privileges on a local system and very little privileges across the network. This highlights the need for understanding of specific SID values, as an uninformed Red Teamer may assume this provides a correct hash and spend minutes or hours wondering why their fancy new silver ticket isn&apos;t working.&lt;/p&gt;
+&lt;p&gt;Another interesting identifier for likely &quot;real&quot; machine accounts is their logon date. For all the virtual accounts, I found that they had all been logged in for around 12-16 hours or less, while &lt;code&gt;LocalSystem&lt;/code&gt; and &lt;code&gt;NetworkService&lt;/code&gt; had been around for months. I compared this with my own lab machine and after rebooting, as expected&lt;/p&gt;
+&lt;p&gt;So, did this solve the problem? You be it did. The student was able to grab the right hash, form a TGS/ST with them, and successfully login to the host. Mystery solved!&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Authentication Id : 0 ; 27860 (00000000:00006cd4)
+Session           : Interactive from 1
+User Name         : UMFD-1
+Domain            : Font Driver Host
+Logon Server      : (null)
+Logon Time        : 1/15/2025 2:57:40 AM
+SID               : S-1-5-96-0-1
+
+         * Username : DCORP-DC$
+         * Domain   : dollarcorp.moneycorp.local
+         * Password : 54 15 1e 36 fd 0a af af 2a [snip]
+         * Key List :
+           aes256_hmac       983237a2a0b9c52453911c0eaf2fa7bd20df046a834384c5e0d396826dd6abe8
+           aes128_hmac       3a8b1c50e95780d4080cfa265cca27df
+           rc4_hmac_nt       d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_old      d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_md4           d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_nt_exp   d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_old_exp  d316cf5d2ff24bc4f5859073ec0e4796
+
+Authentication Id : 0 ; 999 (00000000:000003e7)
+Session           : UndefinedLogonType from 0
+User Name         : DCORP-DC$
+Domain            : dcorp
+Logon Server      : (null)
+Logon Time        : 1/15/2025 2:57:36 AM
+SID               : S-1-5-18
+
+         * Username : dcorp-dc$
+         * Domain   : DOLLARCORP.MONEYCORP.LOCAL
+         * Password : (null)
+         * Key List :
+           aes256_hmac       a100fd2387d8b17334f09548edf1dde844b176770772df7077ff1fcd87952e8a
+           rc4_hmac_nt       d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_old      d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_md4           d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_nt_exp   d316cf5d2ff24bc4f5859073ec0e4796
+           rc4_hmac_old_exp  d316cf5d2ff24bc4f5859073ec0e4796
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;:::note
+While all of the virtual accounts have invalid AES256 hashes, I did come across something interesting. I found that &lt;em&gt;some&lt;/em&gt; virtual accounts have the same NTLM hash as the &quot;real&quot; machine account (see above code block), while others have an older NTLM hash of the &quot;real&quot; account (when compared to previous passwords from a dcsync attack). I cannot find any documentation about why this. From what I can tell, this really doesn&apos;t affect much of anything, but I figured it was worth mentioning. If you know more, hit me up!
+:::&lt;/p&gt;
+&lt;h1&gt;Conclusion&lt;/h1&gt;
+&lt;p&gt;SIDs and RIDs are not only a crucial part of the Windows security model, but can be a handy tool for red teamers to identify and exploit. As always, I appreciate any and all feedback or questions you may have. The best way to reach me is through LinkedIn or through Discord (LabManSec). Until next time, thanks for stopping by The Lab™ and happy hacking!&lt;/p&gt;
+&lt;h2&gt;References&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-principals&quot;&gt;Security Principals (MSFT)&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers&quot;&gt;SID/RID Reference (MSFT)&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://learn.microsoft.com/en-us/defender-for-identity/security-assessment-unsecure-sid-history-attribute&quot;&gt;SIDHistory (MSFT)&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://learn.microsoft.com/en-us/troubleshoot/windows-server/networking/inter-process-communication-share-null-session&quot;&gt;IPC$ and Named Pipes&lt;/a&gt;&lt;/p&gt;
+&lt;p&gt;&lt;a href=&quot;https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-service-accounts#virtual-accounts&quot;&gt;Virtual Accounts (MSFT)&lt;/a&gt;&lt;/p&gt;
+</content:encoded></item></channel></rss>

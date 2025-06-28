@@ -1,7 +1,7 @@
 ---
 title: Certified Red Team Professional (CRTP) Review
 published: 2025-06-28
-description: "A `krbtgt` hash isn't the only credential I'm getting now"
+description: "A krbtgt hash isn't the only credential I'm getting now"
 image: ''
 tags: [ActiveDirectory, RedTeaming, Certifications]
 category: 'Thoughts and Reviews'
